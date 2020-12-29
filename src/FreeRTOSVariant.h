@@ -74,6 +74,8 @@ void vApplicationGetTimerTaskMemory( StaticTask_t **ppxTimerTaskTCBBuffer,
                                      StackType_t **ppxTimerTaskStackBuffer,
                                      configSTACK_DEPTH_TYPE *pulTimerTaskStackSize );
 
+void vPortSuppressTicksAndSleep(TickType_t xExpectedIdleTime);
+
 #ifdef __cplusplus
 }
 #endif

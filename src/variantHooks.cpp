@@ -265,3 +265,101 @@ void vApplicationAssertHook() {
     }
 }
 #endif
+
+
+#define	lowPowerBodOn(mode)	\
+do { 						\
+      set_sleep_mode(mode); \
+      cli();				\
+      sleep_enable();		\
+      sei();				\
+      sleep_cpu();			\
+      sleep_disable();		\
+      sei();				\
+} while (0);
+
+/**
+ * See https://www.freertos.org/low-power-tickless-rtos.html
+ */
+void vPortSuppressTicksAndSleep(TickType_t xExpectedIdleTime) {
+
+    unsigned long ulLowPowerTimeBeforeSleep, ulLowPowerTimeAfterSleep;
+    eSleepModeStatus eSleepStatus;
+
+    /* Read the current time from a time source that will remain operational
+    while the microcontroller is in a low power state. */
+    ulLowPowerTimeBeforeSleep = 1234; //ulGetExternalTime();
+
+    /* Stop the timer that is generating the tick interrupt. */
+    // prvStopTickInterruptTimer();
+    wdt_reset();
+    wdt_interrupt_enable( WDTO_8S );
+
+    /* Enter a critical section that will not effect interrupts bringing the MCU
+    out of sleep mode. */
+    // disable_interrupts();
+    cli();
+
+    /* Ensure it is still ok to enter the sleep mode. */
+    eSleepStatus = eTaskConfirmSleepModeStatus();
+
+    if( eSleepStatus == eAbortSleep )
+    {
+        /* A task has been moved out of the Blocked state since this macro was
+        executed, or a context siwth is being held pending.  Do not enter a
+        sleep state.  Restart the tick and exit the critical section. */
+        //prvStartTickInterruptTimer();
+        //enable_interrupts();
+        wdt_interrupt_enable( WDTO_15MS );
+        sei();
+        // TODO: Do we need to enable back WTD?
+        //wdt_interrupt_enable( WDTO_8S );
+    }
+    else
+    {
+        if( eSleepStatus == eNoTasksWaitingTimeout )
+        {
+            /* It is not necessary to configure an interrupt to bring the
+            microcontroller out of its low power state at a fixed time in the
+            future. */
+            //prvSleep();
+            lowPowerBodOn(SLEEP_MODE_PWR_DOWN);
+        }
+        else
+        {
+            /* Configure an interrupt to bring the microcontroller out of its low
+            power state at the time the kernel next needs to execute.  The
+            interrupt must be generated from a source that remains operational
+            when the microcontroller is in a low power state. */
+            // vSetWakeTimeInterrupt( xExpectedIdleTime );
+            wdt_interrupt_enable( WDTO_8S );
+
+            /* Enter the low power state. */
+            // prvSleep();
+            lowPowerBodOn(SLEEP_MODE_PWR_DOWN);
+
+            /* Determine how long the microcontroller was actually in a low power
+            state for, which will be less than xExpectedIdleTime if the
+            microcontroller was brought out of low power mode by an interrupt
+            other than that configured by the vSetWakeTimeInterrupt() call.
+            Note that the scheduler is suspended before
+            portSUPPRESS_TICKS_AND_SLEEP() is called, and resumed when
+            portSUPPRESS_TICKS_AND_SLEEP() returns.  Therefore no other tasks will
+            execute until this function completes. */
+            ulLowPowerTimeAfterSleep = 23456; //ulGetExternalTime();
+
+            /* Correct the kernels tick count to account for the time the
+            microcontroller spent in its low power state. */
+            vTaskStepTick( ulLowPowerTimeAfterSleep - ulLowPowerTimeBeforeSleep );
+        }
+
+        /* Exit the critical section - it might be possible to do this immediately
+        after the prvSleep() calls. */
+        // enable_interrupts();
+        sei();
+
+        /* Restart the timer that is generating the tick interrupt. */
+        // prvStartTickInterruptTimer();
+        wdt_interrupt_enable( WDTO_15MS );
+    }
+}

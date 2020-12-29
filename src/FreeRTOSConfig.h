@@ -87,6 +87,10 @@
 /* Set the stack pointer type to be uint16_t, otherwise it defaults to unsigned long */
 #define portPOINTER_SIZE_TYPE               uint16_t
 
+/* Enable low power mode for the idle task */
+#define configUSE_TICKLESS_IDLE                 1
+#define configEXPECTED_IDLE_TIME_BEFORE_SLEEP   10
+
 /* Set the following definitions to 1 to include the API function, or zero
 to exclude the API function. */
 
